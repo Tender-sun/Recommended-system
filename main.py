@@ -1,144 +1,120 @@
+﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.pylab as pylab
 
-import method
-
-'''
-def test100k_explicit():
-    test_count = 5#测试集：
-    evaluation_base = 2#训练集：
-    ans = [0] * evaluation_base
-    #print ans
-    for k in xrange(1, test_count + 1):#xrange(1,6)循环1到5，处理较大的数字序列（对比range）
-        #print k
-        method.generate_data_100k_explicit(k)#1.通过for选择u1-u5数据文件
-        #print 'a'
-        #print a
-        method.generate_matrix(implicit=False)#2.回调生成评分矩阵的函数
-        #print 'x'
-        #print x 
-        b = method.evaluate_explicit()#3.评估算法之RMSE和MAE
-        print k
-        print b
-        #print 'b'
-        #print b
-        for x in xrange(evaluation_base):#4.在不同K情况下，将RMSE和MAE存到ans中
-            #print 'x'
-            #print x
-            ans[x] += b[x]
-            #print 'ans'
-            #print ans
-            
-    for x in xrange(evaluation_base):#因为K变化，每次的RMSE和MAE不同，一共5组值；通过循环求平均值
-        #print "x"
-        #print x
-        ans[x] /= test_count
-        #print 'ans'
-        #print ans
-    print ans
-
-
-def test1m_explicit():
-    test_count = 8
-    evaluation_base = 2
-    ans = [0] * evaluation_base
-    for k in xrange(test_count):
-        method.generate_data_1m_explicit(test_count, k)
-        method.generate_matrix(implicit=False)
-        b = method.evaluate_explicit()
-        for x in xrange(evaluation_base):
-            ans[x] += b[x]
-    for x in xrange(evaluation_base):
-        ans[x] /= test_count
-    print ans
-
-
-def test_latest_small_explicit():
-    test_count = 8
-    evaluation_base = 2
-    ans = [0] * evaluation_base
-    for k in xrange(test_count):
-        method.generate_data_latest_small_explicit(test_count, k)
-        method.generate_matrix(implicit=False)
-        b = method.evaluate_explicit()
-        for x in xrange(evaluation_base):
-            ans[x] += b[x]
-    for x in xrange(evaluation_base):
-        ans[x] /= test_count
-    print ans
-
-    
-
-'''
-# *_implicit: 用户u对物品i评分的可能性预测---是否评
-
-def test100k_implicit():
-    test_count = 5
-    evaluation_base = 4#&&&不同点1
-    ans = [0] * evaluation_base
-    for k in xrange(1, test_count + 1):
-        method.generate_data_100k_implicit(k)#&&&不同点2
-        method.generate_matrix(implicit=True)#&&&不同点3e
-        b = method.evaluate_implicit()#&&&不同点4
-        for x in xrange(evaluation_base):
-            ans[x] += b[x]
-    for x in xrange(evaluation_base):
-        ans[x] /= test_count
-    print ans
-
-
-def test1m_implicit():
-    test_count = 8
-    evaluation_base = 4
-    ans = [0] * evaluation_base
-    for k in xrange(test_count):
-        method.generate_data_1m_implicit(test_count, k)
-        method.generate_matrix(implicit=True)
-        b = method.evaluate_implicit()
-        for x in xrange(evaluation_base):
-            ans[x] += b[x]
-    for x in xrange(evaluation_base):
-        ans[x] /= test_count
-    print ans
-
-
-def test_latest_small_implicit():
-    test_count = 8
-    evaluation_base = 4
-    ans = [0] * evaluation_base
-    for k in xrange(test_count):
-        method.generate_data_latest_small_implicit(test_count, k)
-        method.generate_matrix(implicit=True)
-        b = method.evaluate_implicit()
-        for x in xrange(evaluation_base):
-            ans[x] += b[x]
-    for x in xrange(evaluation_base):
-        ans[x] /= test_count
-    print ans
-
-'''
-
+from data import *
+from measure import *
+from Content_based_recommendation import *
+from Collaborative_Filtering_recommendation import *
+from Matrix_Factorization import *
 
 
 if __name__ == '__main__':
 
-   
-    #注意:修改method中对应算法，否则始终测试默认的USERCF！！！
-    
-    #print '100K---'
-    test100k_explicit() 
-    #
-    
-    #print '1m---'
-    #test1m_explicit() #
-    #test1m_implicit() #
-
-    #print 'latest_small---'
-    #test_latest_small_explicit() #
-    #test_latest_small_implicit() #
-
-    
+    '''
+    #1.处理数据
+    #生成以下两个CSV文件，仅执行一次
+    movies.csv-》movies_feature.csv：创建电影的年份特征
+    rating.csv-》user-rating.csv:创建user-item评分矩阵
+    '''
+    #data_preprocess()
     
 
+    #2.导入数据(注:根目录格式为'./ml-..../...')
+    movies_feature = pd.read_csv('./ml-latest-small/movies_feature.csv', index_col=0)
+    user_rating = pd.read_csv('./ml-latest-small/user-rating.csv', index_col=0)
+    print user_rating
+    
+    
+    #3.将原始user-item评分矩阵分为训练集和测试集
+    train, test = train_test_split(user_rating)
+
+
+    '''
+    #4和5生成两个csv文件，仅执行一次
+    
+    #4.使用协同过滤算法来估计评分
+    count = 0
+    total = float(train.shape[0])
+    
+    for idx, user in train.iterrows():
+        unrated_index = user[user == 0].index.values
+        unrated_index_ = map(int, unrated_index)        
+        rates_lst = CF_recommend_estimate(train, idx, unrated_index_, 50)#para:训练集+用户(关键)+物品区间+topK
+
+        train.loc[idx, unrated_index] = rates_lst#选取相应行数据
+
+        #提示进度
+        count += 1
+        if count % 100 == 0:
+            presentage = round((count / total) * 100)
+            print 'Completed %d' % presentage + '%'
+    
+    train.to_csv('./ml-latest-small/pred_ratings_CF.csv')
+    
+    #注:这两个csv文件的生成时间较长，电脑负荷较大，耐心。
+    #其中，两个文件大小均为105M
+    #生成数据，进一步评价，计算MSE和RMSE，这里还是只用MSE(区别不大)
+
+    
+    #5.使用基于内容的推荐算法来估计评分
+    count = 0
+    total = float(train.shape[0])
+    
+    for idx, user in train.iterrows():        
+        unrated_index = user[user == 0].index.values
+        rates_lst = []
+    
+        for item in unrated_index:            
+            rate_h = CB_recommend_estimate(user, movies_feature, int(item))       
+            rates_lst.append(rate_h)
+           
+        train.loc[idx, unrated_index] = rates_lst#选取相应行数据
+     
+        #提示进度
+        count += 1
+        if count % 100 == 0:
+            presentage = round((count / total) * 100)
+            print 'Completed %d' % presentage + '%'
+            
+    train.to_csv('./ml-latest-small/pred_ratings_CB.csv')
+    '''
+
+    
+    #6.评估：CF和CB的MSE和RMSE
+    pred_CB = pd.read_csv('./ml-latest-small/pred_ratings_CB.csv', index_col=0)
+    pred_CF = pd.read_csv('./ml-latest-small/pred_ratings_CF.csv', index_col=0)
+    nonzero_index = user_rating.values.nonzero()
+    #print pred_CB
+    #print pred_CF
+    #print nonzero_index
+    
+    actual = user_rating.values[nonzero_index[0], nonzero_index[1]]
+    pred_CB = pred_CB.values[nonzero_index[0], nonzero_index[1]]
+    pred_CF = pred_CF.values[nonzero_index[0], nonzero_index[1]]
+    print actual
+    print pred_CB
+    print pred_CF
+    
+    print 'MSE of CB is %s' % comp_mse(pred_CB, actual)
+    print 'RMSE of CB is %s' % comp_rmse(pred_CB, actual)
+    
+    print 'MSE of CF is %s' % comp_mse(pred_CF, actual)
+    print 'RMSE of CF is %s' % comp_rmse(pred_CF, actual)
+
+  
+    #7.评估：MF的MSE和RMSE   
+    MF_estimate = Matrix_Factorization(K=10, epoch=10)
+    MF_estimate.fit(train)
+    R_hat = MF_estimate.start()
+    non_index = test.values.nonzero()
+    
+    pred_MF = R_hat[non_index[0], non_index[1]]
+    actual = test.values[non_index[0], non_index[1]]
+    
+    print 'MSE of MF is %s' % comp_mse(pred_MF, actual)
+    print 'RMSE of MF is %s' % comp_rmse(pred_MF, actual)
